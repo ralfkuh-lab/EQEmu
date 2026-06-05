@@ -399,13 +399,13 @@ bool Bot::BotCastPet(Mob* tar, uint8 bot_class, BotSpell& bot_spell, uint16 spel
 			return false;
 		}
 
-		bot_spell = GetFirstBotSpellBySpellType(this, spell_type);
+		bot_spell = GetFirstBotSpellBySpellType(this, spell_type, tar);
 	}
 	else if (bot_class == Class::Magician) {
 		bot_spell = GetBestBotMagicianPetSpell(this, spell_type);
 	}
 	else {
-		bot_spell = GetFirstBotSpellBySpellType(this, spell_type);
+		bot_spell = GetFirstBotSpellBySpellType(this, spell_type, tar);
 	}
 
 	if (!IsValidSpell(bot_spell.SpellId)) {
@@ -870,7 +870,7 @@ bool Bot::AIHealRotation(Mob* tar, bool useFastHeals) {
 			botSpell = GetFirstBotSpellForSingleTargetHeal(this, tar);
 		}
 		if (!IsValidSpell(botSpell.SpellId)) {
-			botSpell = GetFirstBotSpellBySpellType(this, BotSpellTypes::RegularHeal);
+			botSpell = GetFirstBotSpellBySpellType(this, BotSpellTypes::RegularHeal, tar);
 		}
 	}
 
@@ -914,7 +914,7 @@ bool Bot::AIHealRotation(Mob* tar, bool useFastHeals) {
 	return castedSpell;
 }
 
-std::list<BotSpell> Bot::GetBotSpellsForSpellEffect(Bot* caster, uint16 spell_type, int spell_effect) {
+std::list<BotSpell> Bot::GetBotSpellsForSpellEffect(Bot* caster, uint16 spell_type, int spell_effect, Mob* tar) {
 	std::list<BotSpell> result;
 
 	if (!caster) {
@@ -941,6 +941,7 @@ std::list<BotSpell> Bot::GetBotSpellsForSpellEffect(Bot* caster, uint16 spell_ty
 				caster->CheckSpellRecastTimer(bot_spell_list[i].spellid) &&
 				(bot_spell_list[i].type == spell_type || bot_spell_list[i].type == GetParentSpellType(spell_type)) &&
 				caster->IsValidSpellTypeBySpellID(spell_type, bot_spell_list[i].spellid) &&
+				caster->PassBotSpellHPBounds(spell_type, tar, bot_spell_list[i].min_hp, bot_spell_list[i].max_hp) &&
 				(IsEffectInSpell(bot_spell_list[i].spellid, spell_effect) || GetSpellTriggerSpellID(bot_spell_list[i].spellid, spell_effect))
 			) {
 				BotSpell bot_spell;
@@ -956,7 +957,7 @@ std::list<BotSpell> Bot::GetBotSpellsForSpellEffect(Bot* caster, uint16 spell_ty
 	return result;
 }
 
-std::list<BotSpell> Bot::GetBotSpellsForSpellEffectAndTargetType(Bot* caster, uint16 spell_type, int spell_effect, SpellTargetType target_type) {
+std::list<BotSpell> Bot::GetBotSpellsForSpellEffectAndTargetType(Bot* caster, uint16 spell_type, int spell_effect, SpellTargetType target_type, Mob* tar) {
 	std::list<BotSpell> result;
 
 	if (!caster) {
@@ -983,6 +984,7 @@ std::list<BotSpell> Bot::GetBotSpellsForSpellEffectAndTargetType(Bot* caster, ui
 				caster->CheckSpellRecastTimer(bot_spell_list[i].spellid) &&
 				(bot_spell_list[i].type == spell_type || bot_spell_list[i].type == GetParentSpellType(spell_type)) &&
 				caster->IsValidSpellTypeBySpellID(spell_type, bot_spell_list[i].spellid) &&
+				caster->PassBotSpellHPBounds(spell_type, tar, bot_spell_list[i].min_hp, bot_spell_list[i].max_hp) &&
 				(
 					IsEffectInSpell(bot_spell_list[i].spellid, spell_effect) ||
 					GetSpellTriggerSpellID(bot_spell_list[i].spellid, spell_effect)
@@ -1102,6 +1104,10 @@ std::vector<BotSpell_wPriority> Bot::GetPrioritizedBotSpellsBySpellType(Bot* cas
 					continue;
 				}
 
+				if (!caster->PassBotSpellHPBounds(spell_type, tar, bot_spell_list[i].min_hp, bot_spell_list[i].max_hp)) {
+					continue;
+				}
+
 				if (
 					caster->IsCommandedSpell() ||
 					!AE ||
@@ -1129,7 +1135,7 @@ std::vector<BotSpell_wPriority> Bot::GetPrioritizedBotSpellsBySpellType(Bot* cas
 	return result;
 }
 
-BotSpell Bot::GetFirstBotSpellBySpellType(Bot* caster, uint16 spell_type) {
+BotSpell Bot::GetFirstBotSpellBySpellType(Bot* caster, uint16 spell_type, Mob* tar) {
 	BotSpell result;
 
 	result.SpellId = 0;
@@ -1151,7 +1157,8 @@ BotSpell Bot::GetFirstBotSpellBySpellType(Bot* caster, uint16 spell_type) {
 			if (
 				caster->CheckSpellRecastTimer(bot_spell_list[i].spellid) &&
 				(bot_spell_list[i].type == spell_type || bot_spell_list[i].type == GetParentSpellType(spell_type)) &&
-				caster->IsValidSpellTypeBySpellID(spell_type, bot_spell_list[i].spellid)
+				caster->IsValidSpellTypeBySpellID(spell_type, bot_spell_list[i].spellid) &&
+				caster->PassBotSpellHPBounds(spell_type, tar, bot_spell_list[i].min_hp, bot_spell_list[i].max_hp)
 			) {
 				result.SpellId = bot_spell_list[i].spellid;
 				result.SpellIndex = bot_spell_list[i].index;
@@ -1173,7 +1180,7 @@ BotSpell Bot::GetBestBotSpellForVeryFastHeal(Bot* caster, Mob* tar, uint16 spell
 	result.ManaCost = 0;
 
 	if (caster) {
-		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::CurrentHP);
+		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::CurrentHP, tar);
 
 		for (auto bot_spell_list_itr : bot_spell_list) {
 			if (
@@ -1198,7 +1205,7 @@ BotSpell Bot::GetBestBotSpellForFastHeal(Bot* caster, Mob* tar, uint16 spell_typ
 	result.ManaCost = 0;
 
 	if (caster) {
-		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::CurrentHP);
+		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::CurrentHP, tar);
 
 		for (auto bot_spell_list_itr : bot_spell_list) {
 			if (IsFastHealSpell(bot_spell_list_itr.SpellId) && caster->CastChecks(bot_spell_list_itr.SpellId, tar, spell_type)) {
@@ -1222,7 +1229,7 @@ BotSpell Bot::GetBestBotSpellForHealOverTime(Bot* caster, Mob* tar, uint16 spell
 	result.ManaCost = 0;
 
 	if (caster) {
-		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::HealOverTime);
+		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::HealOverTime, tar);
 
 		for (auto bot_spell_list_itr : bot_spell_list) {
 			if (IsHealOverTimeSpell(bot_spell_list_itr.SpellId) && caster->CastChecks(bot_spell_list_itr.SpellId, tar, spell_type)) {
@@ -1256,7 +1263,8 @@ BotSpell Bot::GetBestBotSpellForPercentageHeal(Bot* caster, Mob* tar, uint16 spe
 				(bot_spell_list[i].type == spell_type || bot_spell_list[i].type == GetParentSpellType(spell_type)) &&
 				caster->IsValidSpellTypeBySpellID(spell_type, bot_spell_list[i].spellid) &&
 				IsCompleteHealSpell(bot_spell_list[i].spellid) &&
-				caster->CastChecks(bot_spell_list[i].spellid, tar, spell_type)
+				caster->CastChecks(bot_spell_list[i].spellid, tar, spell_type) &&
+				caster->PassBotSpellHPBounds(spell_type, tar, bot_spell_list[i].min_hp, bot_spell_list[i].max_hp)
 			) {
 				result.SpellId = bot_spell_list[i].spellid;
 				result.SpellIndex = bot_spell_list[i].index;
@@ -1278,7 +1286,7 @@ BotSpell Bot::GetBestBotSpellForRegularSingleTargetHeal(Bot* caster, Mob* tar, u
 	result.ManaCost = 0;
 
 	if (caster) {
-		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::CurrentHP);
+		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::CurrentHP, tar);
 
 		for (std::list<BotSpell>::iterator bot_spell_list_itr = bot_spell_list.begin(); bot_spell_list_itr != bot_spell_list.end(); ++bot_spell_list_itr) {
 			if (IsRegularSingleTargetHealSpell(bot_spell_list_itr->SpellId) && caster->CastChecks(bot_spell_list_itr->SpellId, tar, spell_type)) {
@@ -1302,7 +1310,7 @@ BotSpell Bot::GetFirstBotSpellForSingleTargetHeal(Bot* caster, Mob* tar, uint16 
 	result.ManaCost = 0;
 
 	if (caster) {
-		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::CurrentHP);
+		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::CurrentHP, tar);
 
 		for (std::list<BotSpell>::iterator bot_spell_list_itr = bot_spell_list.begin(); bot_spell_list_itr != bot_spell_list.end(); ++bot_spell_list_itr) {
 			if (IsRegularSingleTargetHealSpell(bot_spell_list_itr->SpellId) && caster->CastChecks(bot_spell_list_itr->SpellId, tar, spell_type)) {
@@ -1329,7 +1337,7 @@ BotSpell Bot::GetBestBotSpellForGroupHeal(Bot* caster, Mob* tar, uint16 spell_ty
 		return result;
 	}
 
-	std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::CurrentHP);
+	std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::CurrentHP, tar);
 	int target_count = 0;
 	int required_count = caster->GetSpellTypeAEOrGroupTargetCount(spell_type);
 
@@ -1367,7 +1375,7 @@ BotSpell Bot::GetBestBotSpellForGroupHealOverTime(Bot* caster, Mob* tar, uint16 
 		return result;
 	}
 
-	std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::HealOverTime);
+	std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::HealOverTime, tar);
 	int target_count = 0;
 	int required_count = caster->GetSpellTypeAEOrGroupTargetCount(spell_type);
 
@@ -1405,7 +1413,7 @@ BotSpell Bot::GetBestBotSpellForGroupCompleteHeal(Bot* caster, Mob* tar, uint16 
 		return result;
 	}
 
-	std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::CompleteHeal);
+	std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::CompleteHeal, tar);
 	int target_count = 0;
 	int required_count = caster->GetSpellTypeAEOrGroupTargetCount(spell_type);
 
@@ -1440,7 +1448,7 @@ BotSpell Bot::GetBestBotSpellForMez(Bot* caster, uint16 spell_type) {
 	result.ManaCost = 0;
 
 	if (caster) {
-		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::Mez);
+		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::Mez, nullptr);
 
 		for (std::list<BotSpell>::iterator bot_spell_list_itr = bot_spell_list.begin(); bot_spell_list_itr != bot_spell_list.end(); ++bot_spell_list_itr) {
 			if (
@@ -1548,7 +1556,7 @@ BotSpell Bot::GetBestBotMagicianPetSpell(Bot* caster, uint16 spell_type) {
 	result.ManaCost = 0;
 
 	if (caster) {
-		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::SummonPet);
+		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::SummonPet, nullptr);
 		std::string pet_type = GetBotMagicianPetType(caster);
 
 		for(std::list<BotSpell>::iterator bot_spell_list_itr = bot_spell_list.begin(); bot_spell_list_itr != bot_spell_list.end(); ++bot_spell_list_itr) {
@@ -1730,7 +1738,7 @@ BotSpell Bot::GetBestBotSpellForNukeByTargetType(Bot* caster, SpellTargetType ta
 	}
 
 	if (caster) {
-		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffectAndTargetType(caster, spell_type, SpellEffect::CurrentHP, target_type);
+		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffectAndTargetType(caster, spell_type, SpellEffect::CurrentHP, target_type, tar);
 
 		for(std::list<BotSpell>::iterator bot_spell_list_itr = bot_spell_list.begin(); bot_spell_list_itr != bot_spell_list.end(); ++bot_spell_list_itr) {
 			if (IsPureNukeSpell(bot_spell_list_itr->SpellId) || IsDamageSpell(bot_spell_list_itr->SpellId)) {
@@ -1777,7 +1785,7 @@ BotSpell Bot::GetBestBotSpellForStunByTargetType(Bot* caster, SpellTargetType ta
 
 	if (caster)
 	{
-		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffectAndTargetType(caster, spell_type, SpellEffect::Stun, target_type);
+		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffectAndTargetType(caster, spell_type, SpellEffect::Stun, target_type, tar);
 
 		for(std::list<BotSpell>::iterator bot_spell_list_itr = bot_spell_list.begin(); bot_spell_list_itr != bot_spell_list.end(); ++bot_spell_list_itr)
 		{
@@ -1835,7 +1843,7 @@ BotSpell Bot::GetBestBotWizardNukeSpellByTargetResists(Bot* caster, Mob* target,
 		}
 
 
-		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffectAndTargetType(caster, spell_type, SpellEffect::CurrentHP, ST_Target);
+		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffectAndTargetType(caster, spell_type, SpellEffect::CurrentHP, ST_Target, target);
 
 		BotSpell first_wizard_magic_nuke_spell_found;
 		first_wizard_magic_nuke_spell_found.SpellId = 0;
@@ -2838,7 +2846,7 @@ BotSpell Bot::GetBestBotSpellForRez(Bot* caster, Mob* target, uint16 spell_type)
 	result.ManaCost = 0;
 
 	if (caster) {
-		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::Revive);
+		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::Revive, target);
 
 		for (std::list<BotSpell>::iterator bot_spell_list_itr = bot_spell_list.begin(); bot_spell_list_itr != bot_spell_list.end(); ++bot_spell_list_itr) {
 			if (
@@ -2865,7 +2873,7 @@ BotSpell Bot::GetBestBotSpellForCharm(Bot* caster, Mob* target, uint16 spell_typ
 	result.ManaCost = 0;
 
 	if (caster) {
-		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::Charm);
+		std::list<BotSpell> bot_spell_list = GetBotSpellsForSpellEffect(caster, spell_type, SpellEffect::Charm, target);
 
 		for (std::list<BotSpell>::iterator bot_spell_list_itr = bot_spell_list.begin(); bot_spell_list_itr != bot_spell_list.end(); ++bot_spell_list_itr) {
 			if (

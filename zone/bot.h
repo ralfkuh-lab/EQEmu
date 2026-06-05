@@ -554,7 +554,9 @@ public:
 
 	// Spell checks
 	static bool IsValidBotSpellType(uint16 spell_type);
+	static bool IsHealBotSpellType(uint16 spell_type);
 	uint16 GetPetBotSpellType(uint16 spell_type);
+	bool PassBotSpellHPBounds(uint16 spell_type, Mob* tar, int16 min_hp, int16 max_hp);
 
 	// Movement checks
 	bool PlotBotPositionAroundTarget(const FindPositionInput& input);
@@ -728,12 +730,12 @@ public:
 	ProcessBotGroupAdd(Group* group, Raid* raid, Client* client = nullptr, bool new_raid = false, bool initial = false);
 
 
-	static std::list<BotSpell> GetBotSpellsForSpellEffect(Bot* caster, uint16 spell_type, int spell_effect);
-	static std::list<BotSpell> GetBotSpellsForSpellEffectAndTargetType(Bot* caster, uint16 spell_type, int spell_effect, SpellTargetType target_type);
+	static std::list<BotSpell> GetBotSpellsForSpellEffect(Bot* caster, uint16 spell_type, int spell_effect, Mob* tar);
+	static std::list<BotSpell> GetBotSpellsForSpellEffectAndTargetType(Bot* caster, uint16 spell_type, int spell_effect, SpellTargetType target_type, Mob* tar);
 	static std::list<BotSpell> GetBotSpellsBySpellType(Bot* caster, uint16 spell_type);
 	static std::vector<BotSpell_wPriority> GetPrioritizedBotSpellsBySpellType(Bot* caster, uint16 spell_type, Mob* tar, bool AE = false, uint16 sub_target_type = UINT16_MAX, uint16 sub_type = UINT16_MAX);
 
-	static BotSpell GetFirstBotSpellBySpellType(Bot* caster, uint16 spell_type);
+	static BotSpell GetFirstBotSpellBySpellType(Bot* caster, uint16 spell_type, Mob* tar);
 	BotSpell GetSpellByHealType(uint16 spell_type, Mob* tar);
 	static BotSpell GetBestBotSpellForVeryFastHeal(Bot* caster, Mob* tar, uint16 spell_type = BotSpellTypes::RegularHeal);
 	static BotSpell GetBestBotSpellForFastHeal(Bot* caster, Mob* tar, uint16 spell_type = BotSpellTypes::RegularHeal);

@@ -9732,6 +9732,19 @@ bool Bot::CastChecks(uint16 spell_id, Mob* tar, uint16 spell_type, bool precheck
 		return false;
 	}
 
+	// Don't self-cast HP-transfer "conversion" heals (e.g. Necro Shadow Compact / Pact of Shadow /
+	// Shadowbond): the recourse drains the caster's HP by the amount healed, so healing oneself nets
+	// ~0 and wastes the heal slot. Restricted to the heal AI path so deliberate self-damage utility
+	// spells are unaffected. Pet/group members remain valid recipients.
+	if (
+		tar == this &&
+		IsHealBotSpellType(spell_type) &&
+		SpellHasDetrimentalRecourse(spell_id)
+	) {
+		LogBotSpellChecksDetail("{} says, 'Cancelling self-cast of {} due to detrimental recourse (would self-damage).'", GetCleanName(), GetSpellName(spell_id));
+		return false;
+	}
+
 	if (tar->GetSpecialAbility(SpecialAbility::MagicImmunity)) {
 		LogBotSpellChecksDetail("{} says, 'Cancelling cast of {} on {} due to MagicImmunity.'", GetCleanName(), GetSpellName(spell_id), tar->GetCleanName());
 		return false;
@@ -12854,6 +12867,46 @@ uint8 Bot::GetHPRatioForSpellType(uint16 spell_type, Mob* tar) {
 	}
 
 	return tar->GetHPRatio();
+}
+
+bool Bot::IsHealBotSpellType(uint16 spell_type) {
+	switch (spell_type) {
+		case BotSpellTypes::VeryFastHeals:
+		case BotSpellTypes::FastHeals:
+		case BotSpellTypes::RegularHeal:
+		case BotSpellTypes::CompleteHeal:
+		case BotSpellTypes::HoTHeals:
+		case BotSpellTypes::GroupHeals:
+		case BotSpellTypes::GroupCompleteHeals:
+		case BotSpellTypes::GroupHoTHeals:
+		case BotSpellTypes::PetVeryFastHeals:
+		case BotSpellTypes::PetFastHeals:
+		case BotSpellTypes::PetRegularHeals:
+		case BotSpellTypes::PetCompleteHeals:
+		case BotSpellTypes::PetHoTHeals:
+			return true;
+		default:
+			return false;
+	}
+}
+
+// Per-spell HP gate (bot_spell_settings / bot_spells_entries min_hp/max_hp).
+// Casts only when GetHPRatioForSpellType(spell_type, tar) is within [min_hp, max_hp].
+// Sentinels: DB default 0 and in-game -1 both mean "no bound" (min<=0 -> 0, max<=0 -> 100),
+// mirroring the NPC-AI heal override convention in mob_ai.cpp.
+bool Bot::PassBotSpellHPBounds(uint16 spell_type, Mob* tar, int16 min_hp, int16 max_hp) {
+	if (!tar) {
+		return true;
+	}
+
+	int min_bound = (min_hp <= 0) ? 0   : min_hp;
+	int max_bound = (max_hp <= 0) ? 100 : max_hp;
+
+	if (min_bound == 0 && max_bound == 100) {
+		return true;
+	}
+
+	return EQ::ValueWithin(static_cast<int>(GetHPRatioForSpellType(spell_type, tar)), min_bound, max_bound);
 }
 
 uint16 Bot::GetPetBotSpellType(uint16 spell_type) {

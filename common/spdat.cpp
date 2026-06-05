@@ -1853,6 +1853,39 @@ bool IsSelfConversionSpell(uint16 spell_id)
 	);
 }
 
+// True if the spell links a recourse that damages the *caster* via a negative direct HP effect.
+// These are HP-transfer "conversion" spells (e.g. Necro Shadow Compact / Pact of Shadow /
+// Shadowbond): the main spell heals the target while the recourse, which fires back on the caster
+// (SpellFinished(recourse_link, this, ...) in spells.cpp), drains an equal amount of the caster's HP.
+bool SpellHasDetrimentalRecourse(uint16 spell_id)
+{
+	if (!IsValidSpell(spell_id)) {
+		return false;
+	}
+
+	uint16 recourse_id = spells[spell_id].recourse_link;
+
+	if (!IsValidSpell(recourse_id) || recourse_id == spell_id) {
+		return false;
+	}
+
+	if (
+		IsEffectInSpell(recourse_id, SpellEffect::CurrentHP) &&
+		spells[recourse_id].base_value[GetSpellEffectIndex(recourse_id, SpellEffect::CurrentHP)] < 0
+	) {
+		return true;
+	}
+
+	if (
+		IsEffectInSpell(recourse_id, SpellEffect::CurrentHPOnce) &&
+		spells[recourse_id].base_value[GetSpellEffectIndex(recourse_id, SpellEffect::CurrentHPOnce)] < 0
+	) {
+		return true;
+	}
+
+	return false;
+}
+
 // returns true for both detrimental and beneficial buffs
 bool IsBuffSpell(uint16 spell_id)
 {
