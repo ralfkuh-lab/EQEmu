@@ -784,6 +784,7 @@ public:
 	Mob* GetBotOwner() { return this->_botOwner; }
 	uint32 GetBotRangedValue();
 	EQ::ItemInstance* GetBotItem(uint16 slot_id);
+	bool HasEquippedItemID(uint32 item_id);
 	bool GetSpawnStatus() { return _spawnStatus; }
 	uint8 GetPetChooserID() { return _petChooserID; }
 	bool HasControllablePet(uint8 ranks_required = 0);

@@ -8227,6 +8227,16 @@ void Bot::OwnerMessage(const std::string& message)
 
 bool Bot::CheckDataBucket(std::string bucket_name, const std::string& bucket_value, uint8 bucket_comparison)
 {
+	// Sentinel-Bucket "equipped_item": KEIN echter Data-Bucket, sondern ein Item-Gate für
+	// Click-Effekt-Spells. bucket_value = Item-ID. Der Spell wird nur in die Bot-Spell-Liste
+	// geladen, wenn der Bot das Item ausgerüstet trägt. CheckDataBucket wird ausschließlich
+	// beim Laden der Liste (AI_AddBotSpells) aufgerufen und deckt so ALLE Cast-Pfade ab
+	// (der Spell taucht sonst in keiner BotGetSpellsByType-Liste auf). Ein Item-Wechsel wirkt
+	// nach dem nächsten Bot-Re-Load = Spawn/Zonenwechsel/Level-Up.
+	if (bucket_name == "equipped_item") {
+		return HasEquippedItemID(Strings::ToUnsignedInt(bucket_value));
+	}
+
 	if (!bucket_name.empty() && !bucket_value.empty()) {
 		// try to fetch from bot first
 		DataBucketKey k = GetScopedBucketKeys();
@@ -8245,6 +8255,24 @@ bool Bot::CheckDataBucket(std::string bucket_name, const std::string& bucket_val
 		}
 
 		if (zone->CompareDataBucket(bucket_comparison, bucket_value, b.value)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+// True, wenn der Bot das angegebene Item in einem Ausrüstungs-Slot trägt.
+// Genutzt fürs Item-Click-Gate (Bucket "equipped_item") in CheckDataBucket.
+bool Bot::HasEquippedItemID(uint32 item_id)
+{
+	if (!item_id) {
+		return false;
+	}
+
+	for (int16 slot_id = EQ::invslot::EQUIPMENT_BEGIN; slot_id <= EQ::invslot::EQUIPMENT_END; ++slot_id) {
+		const EQ::ItemInstance* inst = GetBotItem(slot_id);
+		if (inst && inst->GetItem() && inst->GetItem()->ID == item_id) {
 			return true;
 		}
 	}
