@@ -2252,6 +2252,32 @@ const int BotDatabase::GetBotExtraHasteByID(const uint32 bot_id)
 	return e.bot_id ? e.extra_haste : 0;
 }
 
+bool BotDatabase::LoadBotTributes(Bot* b)
+{
+	if (!b) {
+		return false;
+	}
+
+	const auto query = fmt::format(
+		"SELECT `slot`, `tribute_id` FROM `bot_tributes` WHERE `bot_id` = {}",
+		b->GetBotID()
+	);
+
+	auto results = database.QueryDatabase(query);
+	if (!results.Success()) {
+		return false;
+	}
+
+	for (auto row = results.begin(); row != results.end(); ++row) {
+		b->SetPersonalTribute(
+			static_cast<uint8>(Strings::ToUnsignedInt(row[0])),
+			Strings::ToUnsignedInt(row[1])
+		);
+	}
+
+	return true;
+}
+
 bool BotDatabase::LoadBotSettings(Mob* m)
 {
 	if (!m) {

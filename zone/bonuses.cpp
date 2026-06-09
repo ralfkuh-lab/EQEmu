@@ -28,6 +28,10 @@
 
 #include <cstdlib>
 
+// In zone/tribute.cpp definiert (greift auf die file-lokale tribute_list zu):
+// liefert die Item-ID des hoechsten Rangs eines Tributes (fuer Bot-Tributes).
+extern uint32 GetHighestTributeItemID(uint32 tribute_id);
+
 void Mob::CalcBonuses()
 {
 	CalcSpellBonuses(&spellbonuses);
@@ -186,6 +190,25 @@ void Mob::CalcItemBonuses(StatBonuses* b) {
 					AddItemBonuses(inst, b, false, true);
 					safe_delete(inst);
 				}
+			}
+		}
+	}
+
+	// Bot-Tributes (Solo-Play): wie der Tribute Master bis zu TRIBUTE_SIZE
+	// Personal-Tributes, jeweils auf hoechstem Rang (kein Favor-Budget).
+	// Tribute-Effekte sind unsichtbare Items -> als is_tribute einrechnen.
+	if (IsBot()) {
+		Bot *bot = CastToBot();
+		for (int ti = 0; ti < EQ::invtype::TRIBUTE_SIZE; ti++) {
+			uint32 item_id = GetHighestTributeItemID(bot->GetPersonalTribute(ti));
+			if (item_id) {
+				const EQ::ItemInstance *inst = database.CreateItem(item_id);
+				if (!inst) {
+					continue;
+				}
+
+				AddItemBonuses(inst, b, false, true);
+				safe_delete(inst);
 			}
 		}
 	}

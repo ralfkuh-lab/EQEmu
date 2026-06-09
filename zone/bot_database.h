@@ -75,6 +75,8 @@ public:
 	bool SaveBotBlockedBuffs(Bot* b);
 	bool DeleteBotBlockedBuffs(const uint32 bot_id);
 
+	bool LoadBotTributes(Bot* b);
+
 	/* Bot inventory functions   */
 	bool QueryInventoryCount(const uint32 bot_id, uint32& item_count);
 

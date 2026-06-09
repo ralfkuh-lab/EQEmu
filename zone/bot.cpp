@@ -268,6 +268,8 @@ Bot::Bot(
 	LoadDefaultBotSettings();
 	database.botdb.LoadBotSettings(this);
 
+	database.botdb.LoadBotTributes(this);
+
 	if (RuleB(Bots, AllowBotBlockedBuffs)) {
 		bot_blocked_buffs.clear();
 		database.botdb.LoadBotBlockedBuffs(this);

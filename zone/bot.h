@@ -605,6 +605,16 @@ public:
 	std::vector<BotBlockedBuffs> GetBotBlockedBuffs() { return bot_blocked_buffs; }
 	void SetBotBlockedBuffs(std::vector<BotBlockedBuffs> blocked_buffs) { bot_blocked_buffs = blocked_buffs; }
 
+	// Personal-Tributes (Solo-Play): bis zu TRIBUTE_SIZE gewaehlte tribute_id je Bot.
+	// Geladen beim Spawn (BotDatabase::LoadBotTributes), eingerechnet in
+	// Mob::CalcItemBonuses (hoechster Rang via GetHighestTributeItemID).
+	void SetPersonalTribute(uint8 slot, uint32 tribute_id) {
+		if (slot < EQ::invtype::TRIBUTE_SIZE) { m_personal_tributes[slot] = tribute_id; }
+	}
+	uint32 GetPersonalTribute(uint8 slot) const {
+		return slot < EQ::invtype::TRIBUTE_SIZE ? m_personal_tributes[slot] : 0;
+	}
+
 	void SetBotSpellRecastTimer(uint16 spell_type, Mob* spelltar, bool pre_cast = false);
 	uint16 GetSpellTypePriority(uint16 spell_type, uint8 priority_type);
 	void SetSpellTypePriority(uint16 spell_type, uint8 priority_type, uint16 priority);
@@ -1207,6 +1217,11 @@ private:
 	bool _pullingSpell;
 	
 	bool _illusionBlock;
+	// Leere Slots tragen TRIBUTE_NONE (0xFFFFFFFF); 0 ist eine GUELTIGE tribute_id
+	// (Aura of Clarity), daher nicht 0 als "leer" verwenden.
+	static_assert(EQ::invtype::TRIBUTE_SIZE == 5, "m_personal_tributes-Initializer an TRIBUTE_SIZE anpassen");
+	uint32 m_personal_tributes[EQ::invtype::TRIBUTE_SIZE] =
+		{ TRIBUTE_NONE, TRIBUTE_NONE, TRIBUTE_NONE, TRIBUTE_NONE, TRIBUTE_NONE };
 	std::vector<BotSpellSettings> m_bot_spell_settings;
 	std::vector<Mob*> _spell_target_list;
 	std::vector<Mob*> _group_spell_target_list;

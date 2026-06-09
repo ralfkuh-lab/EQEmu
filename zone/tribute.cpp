@@ -627,6 +627,29 @@ uint32 Client::LookupTributeItemID(uint32 tribute_id, uint32 tier)
 	return 0;
 }
 
+// Liefert die (unsichtbare) Item-ID des hoechsten verfuegbaren Rangs eines
+// Tributes. Genutzt fuer Bot-Tributes (kein Favor-Budget -> immer hoechster
+// Rang). Greift auf die globale tribute_list zu, braucht daher keine
+// Client-Instanz; in bonuses.cpp per extern deklariert.
+uint32 GetHighestTributeItemID(uint32 tribute_id)
+{
+	// tribute_id 0 ist gueltig (Aura of Clarity); leere Bot-Slots tragen
+	// TRIBUTE_NONE (0xFFFFFFFF) und fallen hier ueber das find() raus.
+	auto it = tribute_list.find(tribute_id);
+	if (it == tribute_list.end()) {
+		return 0;
+	}
+
+	const TributeData &d = it->second;
+	for (int t = static_cast<int>(d.tier_count) - 1; t >= 0; --t) {
+		if (d.tiers[t].tribute_item_id) {
+			return d.tiers[t].tribute_item_id;
+		}
+	}
+
+	return 0;
+}
+
 /*
 64.37.149.6:1353 == server
 66.90.221.245:3173 == client
