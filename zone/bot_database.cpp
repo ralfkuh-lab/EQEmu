@@ -2361,16 +2361,20 @@ bool BotDatabase::SaveBotSettings(Mob* m)
 		return true;
 	}
 
-	std::string query = "";
-
+	// Solo-Server-Anpassung: Fuer BOTS kein pauschales Delete der aktiven Stance mehr.
+	// Das Delete+Rewrite ueberschrieb extern (Cockpit) geschriebene bot_settings-Zeilen
+	// mit dem beim Spawn geladenen, ggf. veralteten In-Memory-Stand (jeder Bot::Save -
+	// Camp, Zone-Shutdown etc. - loeschte die Zeilen der aktiven Stance). ReplaceMany
+	// unten aktualisiert ueber den PK (character_id,bot_id,stance,setting_id,setting_type)
+	// weiterhin alle vom Default abweichenden In-Memory-Werte. Trade-off: ein in-game
+	// per ^-Befehl auf den DEFAULT zurueckgesetzter Wert bleibt als DB-Zeile stehen und
+	// laedt beim naechsten Spawn wieder - im Cockpit loesch-/aenderbar.
 	if (m->IsClient()) {
-		query = fmt::format("`character_id` = {} AND `stance` = {}", character_id, stance_id);
+		BotSettingsRepository::DeleteWhere(
+			database,
+			fmt::format("`character_id` = {} AND `stance` = {}", character_id, stance_id)
+		);
 	}
-	else {
-		query = fmt::format("`bot_id` = {} AND `stance` = {}", bot_id, stance_id);
-	}
-
-	BotSettingsRepository::DeleteWhere(database, query);
 
 	std::vector<BotSettingsRepository::BotSettings> v;
 

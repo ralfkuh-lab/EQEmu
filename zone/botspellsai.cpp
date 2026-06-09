@@ -764,8 +764,11 @@ bool Bot::AI_IdleCastCheck() {
 
 bool Bot::AI_EngagedCastCheck() {
 	if (GetAppearance() == eaDead || delaytimer || spellend_timer.Enabled() || IsFeared() || IsSilenced() || IsAmnesiad() || GetHP() < 0) {
+		LogBotSpellChecksDetail("{} says, 'EngagedCC blocked: delay [{}] spellend [{}] feared [{}] silenced [{}].'", GetCleanName(), delaytimer, spellend_timer.Enabled(), IsFeared(), IsSilenced());
 		return false;
 	}
+
+	LogBotSpellChecksDetail("{} says, 'EngagedCC gate ok: tar [{}] timer_enabled [{}] timer_remaining [{}].'", GetCleanName(), (GetTarget() ? GetTarget()->GetCleanName() : "none"), AIautocastspell_timer->Enabled(), AIautocastspell_timer->GetRemainingTime());
 
 	bool result = false;
 
