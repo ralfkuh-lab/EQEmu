@@ -2419,7 +2419,7 @@ void Bot::AI_Process()
 				return;
 			}
 
-			if (!IsBotNonSpellFighter() && AI_HasSpells() && AI_EngagedCastCheck()) {
+			if (AI_HasSpells() && AI_EngagedCastCheck()) { // IsBotNonSpellFighter()-Gate entfernt (Solo): Melee-Bots sollen Item-Click-Spells auto-casten
 				return;
 			}
 
@@ -2594,7 +2594,7 @@ void Bot::DoOutOfCombatChecks(Client* bot_owner, Mob* follow_mob, float leash_di
 		return;
 	}
 
-	if (!IsBotNonSpellFighter() && AI_HasSpells() && TryIdleChecks(fm_distance)) {
+	if (AI_HasSpells() && TryIdleChecks(fm_distance)) { // IsBotNonSpellFighter()-Gate entfernt (Solo): Melee-Bots casten Item-Click-Buffs im Leerlauf
 		return;
 	}
 
@@ -2837,7 +2837,7 @@ bool Bot::TryPursueTarget(float leash_distance) {
 		}
 
 		// This is a mob that is fleeing either because it has been feared or is low on hitpoints
-		if (!HOLDING && !IsBotNonSpellFighter() && AI_HasSpells()) {
+		if (!HOLDING && AI_HasSpells()) { // IsBotNonSpellFighter()-Gate entfernt (Solo): Melee-Bots casten auch bei Verfolgung
 			AI_PursueCastCheck();
 		}
 
@@ -8234,7 +8234,11 @@ bool Bot::CheckDataBucket(std::string bucket_name, const std::string& bucket_val
 	// (der Spell taucht sonst in keiner BotGetSpellsByType-Liste auf). Ein Item-Wechsel wirkt
 	// nach dem nächsten Bot-Re-Load = Spawn/Zonenwechsel/Level-Up.
 	if (bucket_name == "equipped_item") {
-		return HasEquippedItemID(Strings::ToUnsignedInt(bucket_value));
+		// Auto-Clickie-Gate: NICHT beim Laden pruefen (m_inv ist beim Spawn/AI_AddBotSpells
+		// unzuverlaessig -> Clickie wuerde nie in die Cast-Liste kommen). Spell immer laden;
+		// die "nur wenn Item getragen"-Bedingung wird stattdessen zur Cast-Zeit in
+		// Bot::CastChecks geprueft (dort ist m_inv garantiert befuellt).
+		return true;
 	}
 
 	if (!bucket_name.empty() && !bucket_value.empty()) {
@@ -9610,6 +9614,19 @@ bool Bot::CastChecks(uint16 spell_id, Mob* tar, uint16 spell_type, bool precheck
 	if (!IsValidSpell(spell_id)) {
 		LogBotSpellChecksDetail("{} says, 'Cancelling cast due to !IsValidSpell.'", GetCleanName());
 		return false;
+	}
+
+	// Auto-Clickie equipped-item gate (Cast-Zeit; das Lade-Zeit-Gate in CheckDataBucket gibt fuer
+	// "equipped_item" immer true zurueck, weil m_inv beim Spawn unzuverlaessig ist). Hier ist m_inv
+	// garantiert geladen: Spell mit bucket "equipped_item" nur casten, wenn der Bot das Item traegt.
+	for (const auto& bsp : AIBot_spells) {
+		if (bsp.spellid == spell_id && bsp.bucket_name == "equipped_item" && !bsp.bucket_value.empty()) {
+			if (!HasEquippedItemID(Strings::ToUnsignedInt(bsp.bucket_value))) {
+				LogBotSpellChecksDetail("{} says, 'Cancelling cast of {} due to equipped_item gate (item not equipped).'", GetCleanName(), GetSpellName(spell_id));
+				return false;
+			}
+			break;
+		}
 	}
 
 	if (
