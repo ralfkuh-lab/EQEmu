@@ -1676,6 +1676,11 @@ bool Bot::Process()
 
 	SpellProcess();
 
+	// Bolt spells (ST_TargetOptional, e.g. the mage "Bolt" line): TrySpellProjectile launches the
+	// projectile, but impact processing (ProjectileAttack) only ran in Client::Process -> bot-cast
+	// bolts never landed their damage. Process in-flight projectiles here as well (solo-server fix).
+	ProjectileAttack();
+
 	if (tic_timer.Check()) {
 
 		// 6 seconds, or whatever the rule is set to has passed, send this position to everyone to avoid ghosting
