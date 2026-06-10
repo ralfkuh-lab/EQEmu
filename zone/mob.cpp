@@ -4978,8 +4978,12 @@ void Mob::WipeHateList(bool npc_only) {
 
 uint32 Mob::RandomTimer(int min, int max)
 {
+	// min == max means a fixed interval, not "invalid": with the old `min < max`
+	// check, equal rule values (e.g. Bots:Min/MaxDelayBetweenInCombatCastAttempts
+	// both 500) silently fell through to the 14000ms default and crippled the
+	// bot in-combat cast cadence to one attempt every 14s.
 	int r = 14000;
-	if (min != 0 && max != 0 && min < max) {
+	if (min != 0 && max != 0 && min <= max) {
 		r = zone->random.Int(min, max);
 	}
 	return r;
